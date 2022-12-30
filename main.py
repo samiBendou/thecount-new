@@ -1,6 +1,11 @@
 import csv
 import datetime
 import math
+import os
+import threading
+import tkinter as tk
+from tkinter import filedialog as fd
+from tkinter import messagebox, ttk
 
 import matplotlib.colors as mcolors
 import matplotlib.dates as mdates
@@ -486,7 +491,8 @@ def plot_bar_repartition(ax: plt.Axes, amount_by_category, dates):
 def render_synthesis(export_account, dates):
     start = dates[0]
     end = dates[-1]
-    with PdfPages(f"{start.isoformat()}_{end.isoformat()}_{days}_days_account_synthesis.pdf") as pdf:
+
+    with PdfPages(f"{start.isoformat()}_{end.isoformat()}_{1}_days_account_synthesis.pdf") as pdf:
         fig, ax = plt.subplots(4, 1, sharex=True)
 
         plot_cash_flow(ax[0], ax[1], export_account, dates)
@@ -515,22 +521,153 @@ def render_synthesis(export_account, dates):
                 fig, title=f"Detailed Repartition ~ {category}", pdf=pdf)
 
 
-import_account = Account.parse_import(read_xls_file(IMPORT_FILE))
-current_account = Account.parse_current(read_csv_file(CURRENT_DATA))
-export_account = current_account.merge(import_account)
+class FilePickerFrame(tk.Frame):
+    filevar: tk.Variable
+    label: tk.Label
+    entry: tk.Entry
+    button: tk.Button
 
-write_csv_file(EXPORT_FILE, export_account.to_export())
+    def __init__(self, root, name, initial=None):
+        super().__init__(root)
+        cwd = os.getcwd()
+        initial = initial if initial is not None else ""
+        self.filevar = tk.StringVar(root, value=f"{cwd}{os.path.sep}{initial}")
+        self.label = ttk.Label(self, text=name,  width=20)
+        self.entry = ttk.Entry(self, textvariable=self.filevar)
+        self.button = ttk.Button(self, text="Select a file",
+                                 command=self._select_file)
 
-# datetime.datetime.now().date()
-end_date = export_account.ended_at()
-# end_date - datetime.timedelta(days=30)
-start_date = export_account.started_at()
-days = 1
-dates = make_linear_date(start_date, end_date, days)
+        self.label.pack(side=tk.LEFT)
+        self.entry.pack(side=tk.LEFT, expand=True, fill=tk.BOTH)
+        self.button.pack(side=tk.RIGHT)
 
-render_synthesis(export_account, dates)
+    def _select_file(self):
+        cwd = os.getcwd()
 
-month_scale = make_linear_date(start_date, end_date, 30)
-for start, end in zip(month_scale, month_scale[1:]):
-    dates = make_linear_date(start, end, days)
+        filetypes = (
+            ('CSV Files', '*.csv'),
+            ('CSV Files', '*.xls'),
+            ('CSV Files', '*.xlsx'),
+            ('All files', '*.*')
+        )
+
+        filename = fd.askopenfilename(
+            title="Open a file",
+            initialdir=cwd,
+            filetypes=filetypes)
+
+        if filename is not None and filename != "":
+            self.filevar.set()
+
+    def filename(self):
+        return self.filevar.get()
+
+
+class ActionBarFrame(tk.Frame):
+    button_merge: tk.Button
+    button_synthetize: tk.Button
+
+    def __init__(self, root, on_merge, on_synthetize):
+        super().__init__(root)
+
+        self.button_merge = ttk.Button(self, text="Merge records",
+                                       command=on_merge)
+        self.button_synthetize = ttk.Button(self, text="Synthetize records",
+                                            command=on_synthetize)
+
+        self.button_merge.pack(side=tk.LEFT)
+        self.button_synthetize.pack(side=tk.RIGHT)
+
+
+root = tk.Tk()
+root.title("Select a transactions record")
+root.geometry("900x120")
+root.resizable(width=False, height=False)
+
+
+import_picker = FilePickerFrame(root, "Import record", initial=IMPORT_FILE)
+import_picker.pack(fill=tk.BOTH)
+
+current_picker = FilePickerFrame(root, "Current record", initial=CURRENT_DATA)
+current_picker.pack(fill=tk.BOTH)
+
+progress_bar = ttk.Progressbar(root, value=0)
+progress_bar.pack(fill=tk.BOTH)
+
+import_account = None
+current_account = None
+export_account = None
+
+
+def on_merge():
+    try:
+        import_filename = import_picker.filename()
+        print(import_filename)
+        import_account = Account.parse_import(read_xls_file(import_filename))
+        current_account = Account.parse_current(
+            read_csv_file(current_picker.filename()))
+
+    except:
+        messagebox.showerror("File error", "Unable to open file")
+        return
+
+    export_account = current_account.merge(import_account)
+    write_csv_file(EXPORT_FILE, export_account.to_export())
+    messagebox.showinfo(
+        "Done", f"Successfully merged {len(import_account.transactions)} transactions !")
+
+
+def do_synthetize(export_account):
+    # datetime.datetime.now().date()
+    end_date = export_account.ended_at()
+    # end_date - datetime.timedelta(days=30)
+    start_date = export_account.started_at()
+    days = 1
+    dates = make_linear_date(start_date, end_date, days)
+    month_scale = make_linear_date(start_date, end_date, 30)
+
+    progress_bar.step(amount=-100)
+
+    progress = 1/len(month_scale)*100
     render_synthesis(export_account, dates)
+    progress_bar.step(amount=progress)
+
+    for start, end in zip(month_scale, month_scale[1:]):
+        dates = make_linear_date(start, end, days)
+        render_synthesis(export_account, dates)
+        progress_bar.step(amount=progress)
+
+    messagebox.showinfo(
+        "Done", f"Successfully generated synthesis reports from {start_date.isoformat()} to {end_date.isoformat()}")
+
+    action_bar.button_synthetize["state"] = tk.NORMAL
+    action_bar.button_merge["state"] = tk.NORMAL
+
+
+def on_synthetize():
+    try:
+        import_filename = import_picker.filename()
+        import_account = Account.parse_import(read_xls_file(import_filename))
+        current_account = Account.parse_current(
+            read_csv_file(current_picker.filename()))
+
+    except:
+        messagebox.showerror("File error", "Unable to open file")
+        return
+
+    export_account = current_account.merge(import_account)
+    write_csv_file(EXPORT_FILE, export_account.to_export())
+    messagebox.showinfo(
+        "Done", f"Successfully merged {len(import_account.transactions)} transactions !")
+
+    action_bar.button_synthetize["state"] = tk.DISABLED
+    action_bar.button_merge["state"] = tk.DISABLED
+    thread = threading.Thread(target=do_synthetize, args=(export_account,))
+    thread.start()
+
+
+action_bar = ActionBarFrame(root, on_merge=on_merge,
+                            on_synthetize=on_synthetize)
+action_bar.pack()
+
+root.mainloop()

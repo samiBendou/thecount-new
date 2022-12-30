@@ -2,3 +2,6 @@
 *.pdf
 *.xls
 *.xlsx
+*.spec
+build
+dist
