@@ -16,7 +16,7 @@ import xlrd
 from matplotlib.backends.backend_pdf import PdfPages
 
 CURRENT_DATA = "current-data.csv"
-EXPORT_FILE = "merge-export.csv"
+EXPORT_FILE = "merge-export-clara.csv"
 IMPORT_FILE = "export_30_12_2022_18_01_14.xls"
 
 
@@ -215,8 +215,10 @@ class Account:
     def parse_current(rows):
         imported_at = parse_french_date(rows[0][7], "/")
         all_transactions = list(map(Transaction.parse_current, rows[1:]))
+
         initial_balance = float(list(
             filter(Transaction.is_initial, all_transactions))[0].amount)
+
         transactions = list(
             filter(lambda t: not Transaction.is_initial(t), all_transactions))
         return Account(initial_balance, imported_at, transactions)
@@ -282,7 +284,10 @@ class Account:
         return self.transactions[0].occured_at
 
     def ended_at(self):
-        return self.transactions[-1].occured_at
+        try:
+            return self.transactions[-1].occured_at
+        except IndexError:
+            return self.imported_at
 
     def by_category(self):
         transactions = {}
@@ -557,7 +562,7 @@ class FilePickerFrame(tk.Frame):
             filetypes=filetypes)
 
         if filename is not None and filename != "":
-            self.filevar.set()
+            self.filevar.set(filename)
 
     def filename(self):
         return self.filevar.get()
@@ -579,95 +584,114 @@ class ActionBarFrame(tk.Frame):
         self.button_synthetize.pack(side=tk.RIGHT)
 
 
-root = tk.Tk()
-root.title("Select a transactions record")
-root.geometry("900x120")
-root.resizable(width=False, height=False)
+class Window:
+    root: tk.Tk
+    progress_bar: ttk.Progressbar
+    import_picker: FilePickerFrame
+    current_picker: FilePickerFrame
+    action_bar: ActionBarFrame
+
+    def __init__(self, on_merge, on_synthetize, on_quit):
+        self.root = tk.Tk()
+        self.root.title("Select a transactions record")
+        self.root.geometry("900x120")
+        self.root.resizable(width=False, height=False)
+        self.root.protocol("WM_DELETE_WINDOW", on_quit)
+
+        self.import_picker = FilePickerFrame(
+            self.root, "Import record", initial=IMPORT_FILE)
+        self.import_picker.pack(fill=tk.BOTH)
+
+        self.current_picker = FilePickerFrame(
+            self.root, "Current record", initial=CURRENT_DATA)
+        self.current_picker.pack(fill=tk.BOTH)
+
+        self.progress_bar = ttk.Progressbar(self.root, value=0)
+        self.progress_bar.pack(fill=tk.BOTH)
+
+        self.action_bar = ActionBarFrame(self.root, on_merge=on_merge,
+                                         on_synthetize=on_synthetize)
+        self.action_bar.pack()
 
 
-import_picker = FilePickerFrame(root, "Import record", initial=IMPORT_FILE)
-import_picker.pack(fill=tk.BOTH)
+class App:
+    import_account: Account | None
+    current_account: Account | None
+    export_account: Account | None
 
-current_picker = FilePickerFrame(root, "Current record", initial=CURRENT_DATA)
-current_picker.pack(fill=tk.BOTH)
+    thread: threading.Thread | None
 
-progress_bar = ttk.Progressbar(root, value=0)
-progress_bar.pack(fill=tk.BOTH)
+    window: Window
 
-import_account = None
-current_account = None
-export_account = None
+    def __init__(self) -> None:
+        self.import_account = None
+        self.current_account = None
+        self.export_account = None
 
+        self.thread = None
 
-def on_merge():
-    try:
-        import_filename = import_picker.filename()
-        print(import_filename)
-        import_account = Account.parse_import(read_xls_file(import_filename))
-        current_account = Account.parse_current(
-            read_csv_file(current_picker.filename()))
+        self.window = Window(self.on_merge, self.on_synthetize, self.on_quit)
 
-    except:
-        messagebox.showerror("File error", "Unable to open file")
-        return
+    def on_merge(self):
+        self._do_merge()
 
-    export_account = current_account.merge(import_account)
-    write_csv_file(EXPORT_FILE, export_account.to_export())
-    messagebox.showinfo(
-        "Done", f"Successfully merged {len(import_account.transactions)} transactions !")
+    def on_synthetize(self):
+        self._do_merge()
+        self.window.action_bar.button_synthetize["state"] = tk.DISABLED
+        self.window.action_bar.button_merge["state"] = tk.DISABLED
 
+        if self.thread is not None:
+            self.thread.join()
 
-def do_synthetize(export_account):
-    # datetime.datetime.now().date()
-    end_date = export_account.ended_at()
-    # end_date - datetime.timedelta(days=30)
-    start_date = export_account.started_at()
-    days = 1
-    dates = make_linear_date(start_date, end_date, days)
-    month_scale = make_linear_date(start_date, end_date, 30)
+        self.thread = threading.Thread(target=self._do_synthetize)
+        self.thread.start()
 
-    progress_bar.step(amount=-100)
+    def on_quit(self):
+        self.window.root.destroy()
 
-    progress = 1/len(month_scale)*100
-    render_synthesis(export_account, dates)
-    progress_bar.step(amount=progress)
+    def _do_synthetize(self):
+        # datetime.datetime.now().date()
+        end_date = self.export_account.ended_at()
+        # end_date - datetime.timedelta(days=30)
+        start_date = self.export_account.started_at()
+        days = 1
+        dates = make_linear_date(start_date, end_date, days)
+        month_scale = make_linear_date(start_date, end_date, 30)
+        self.window.progress_bar.step(amount=-100)
 
-    for start, end in zip(month_scale, month_scale[1:]):
-        dates = make_linear_date(start, end, days)
-        render_synthesis(export_account, dates)
-        progress_bar.step(amount=progress)
+        progress = 1/len(month_scale)*100
+        render_synthesis(self.export_account, dates)
+        self.window.progress_bar.step(amount=progress)
 
-    messagebox.showinfo(
-        "Done", f"Successfully generated synthesis reports from {start_date.isoformat()} to {end_date.isoformat()}")
+        for start, end in zip(month_scale, month_scale[1:]):
+            dates = make_linear_date(start, end, days)
+            render_synthesis(self.export_account, dates)
+            self.window.progress_bar.step(amount=progress)
 
-    action_bar.button_synthetize["state"] = tk.NORMAL
-    action_bar.button_merge["state"] = tk.NORMAL
+        messagebox.showinfo(
+            "Done", f"Successfully generated synthesis reports from {start_date.isoformat()} to {end_date.isoformat()}")
 
+        self.window.action_bar.button_synthetize["state"] = tk.NORMAL
+        self.window.action_bar.button_merge["state"] = tk.NORMAL
 
-def on_synthetize():
-    try:
-        import_filename = import_picker.filename()
-        import_account = Account.parse_import(read_xls_file(import_filename))
-        current_account = Account.parse_current(
-            read_csv_file(current_picker.filename()))
+    def _do_merge(self):
+        try:
+            self.import_filename = self.window.import_picker.filename()
+            self.import_account = Account.parse_import(
+                read_xls_file(self.import_filename))
+            self.current_account = Account.parse_current(
+                read_csv_file(self.window.current_picker.filename()))
 
-    except:
-        messagebox.showerror("File error", "Unable to open file")
-        return
+        except Exception as e:
+            messagebox.showerror("Unable to open file", f"{e}")
+            return
 
-    export_account = current_account.merge(import_account)
-    write_csv_file(EXPORT_FILE, export_account.to_export())
-    messagebox.showinfo(
-        "Done", f"Successfully merged {len(import_account.transactions)} transactions !")
+        self.export_account = self.current_account.merge(self.import_account)
+        write_csv_file(EXPORT_FILE, self.export_account.to_export())
 
-    action_bar.button_synthetize["state"] = tk.DISABLED
-    action_bar.button_merge["state"] = tk.DISABLED
-    thread = threading.Thread(target=do_synthetize, args=(export_account,))
-    thread.start()
+        msg = f"Successfully merged {len(self.import_account.transactions)} transactions !"
+        messagebox.showinfo("Done", msg)
 
 
-action_bar = ActionBarFrame(root, on_merge=on_merge,
-                            on_synthetize=on_synthetize)
-action_bar.pack()
-
-root.mainloop()
+app = App()
+app.window.root.mainloop()
