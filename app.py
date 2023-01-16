@@ -49,7 +49,7 @@ class App:
         start_date = self.export_account.started_at()
         days = 1
         dates = make_linear_date(start_date, end_date, days)
-        month_scale = make_linear_date(start_date, end_date, 30)
+        month_scale = make_accounting_term_dates(start_date, end_date)
         self.window.progress_bar.step(amount=-100)
 
         progress = 1/len(month_scale)*100

@@ -41,10 +41,26 @@ def unzip(zipped):
     return (list(map(lambda z: z[0], zipped)), list(map(lambda z: z[1], zipped)))
 
 
-def make_linear_date(start, end, days=1):
+def make_linear_date(start: datetime.date, end: datetime.date, days=1):
     total_duration = end - start
     delta = datetime.timedelta(days=days)
     return list(map(lambda i: start + i * delta, range(math.ceil(total_duration.days / days))))
+
+
+def make_accounting_term_dates(start: datetime.date, end: datetime.date):
+    term_start = datetime.date(start.year, start.month, 1)
+    month_duration = (end - term_start).days / 30
+
+    delta = datetime.timedelta(days=31)
+    dates = []
+    for i in range(math.ceil(month_duration) + 1):
+        d = term_start + i * delta
+        dates.append(datetime.date(d.year, d.month, 1))
+    return dates
+
+
+def make_accounting_term_date(year: float, month: float):
+    return datetime.date(year, month, 1)
 
 
 def group_by(keys, values):
