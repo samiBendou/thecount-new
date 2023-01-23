@@ -58,7 +58,7 @@ class App:
         month_scale = make_accounting_term_dates(start_date, end_date)
         self.window.progress_bar.step(amount=-100)
 
-        progress = 1 if only_last_month else 1/len(month_scale)*100
+        progress = 100 if only_last_month else 1/len(month_scale)*100
         render_synthesis(self.export_account, dates)
         self.window.progress_bar.step(amount=progress)
 
