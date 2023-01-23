@@ -39,12 +39,9 @@ def render_fig(fig: fig.Figure, title=None, date: datetime.date = None, pdf=None
     fig.clf()
 
 
-def render_ax(ax: plt.Axes, xl=None, yl=None, legend=True, title=""):
+def render_ax(ax: plt.Axes, xl=None, yl=None, title=""):
 
     ax.grid(True)
-
-    if legend is True:
-        ax.legend(loc="upper left")
 
     if xl is not None:
         ax.set_xlabel(xl)
@@ -109,7 +106,6 @@ def plot_repartition(ax_pos: plt.Axes, ax_neg: plt.Axes, amount_by_category, dat
                          labels=list(map(lambda y: y[0], positive)))
         ax_neg.stackplot(dates, list(map(lambda y: invert(y[1]), negative)),
                          labels=list(map(lambda y: y[0], negative)))
-        ax_neg.legend(loc="upper left")
         render_ax(ax_pos, title="Profit ~ " + title)
         render_ax(ax_neg, title="Loss ~ " + title)
 
@@ -117,14 +113,12 @@ def plot_repartition(ax_pos: plt.Axes, ax_neg: plt.Axes, amount_by_category, dat
         ax_neg.yaxis.set_major_formatter('{x} €')
         ax_neg.stackplot(dates, list(map(lambda y: invert(y[1]), negative)),
                          labels=list(map(lambda y: y[0], negative)))
-        ax_neg.legend(loc="upper left")
         render_ax(ax_neg)
 
     elif (len(positive) > 0):
         ax_pos.yaxis.set_major_formatter('{x} €')
         ax_pos.stackplot(dates, list(map(lambda y: y[1], positive)),
                          labels=list(map(lambda y: y[0], positive)))
-        ax_pos.legend(loc="upper left")
         render_ax(ax_pos)
 
 
@@ -146,7 +140,6 @@ def plot_pie_repartition(ax: plt.Axes, amount_by_category, dates):
                wedgeprops=dict(width=0.5, edgecolor="w"),
                autopct="%1.1f%%"
                )
-        ax.legend(loc="upper left")
 
         render_ax(ax)
 
@@ -156,7 +149,6 @@ def plot_pie_repartition(ax: plt.Axes, amount_by_category, dates):
                wedgeprops=dict(width=0.5, edgecolor="w"),
                autopct="%1.1f%%"
                )
-        ax.legend(loc="upper left")
         render_ax(ax)
 
 
