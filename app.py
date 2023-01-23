@@ -49,9 +49,7 @@ class App:
         self.window.root.destroy()
 
     def _do_synthetize(self, only_last_month: bool):
-        # datetime.datetime.now().date()
         end_date = self.export_account.ended_at()
-        # end_date - datetime.timedelta(days=30)
         start_date = self.export_account.started_at()
         days = 1
         dates = make_linear_date(start_date, end_date, days)
