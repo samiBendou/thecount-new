@@ -211,6 +211,8 @@ def render_synthesis(export_account, dates):
 
         render_fig(fig, title="Overall repartition", pdf=pdf)
 
+        plt.close(fig)
+
         for category, amounts in amount_by_sub_category.items():
             fig, ax = plt.subplots(3, 1)
             plot_pie_repartition(ax[0], amounts, dates)
@@ -219,3 +221,5 @@ def render_synthesis(export_account, dates):
 
             render_fig(
                 fig, title=f"Detailed Repartition ~ {category}", pdf=pdf)
+
+            plt.close(fig)
