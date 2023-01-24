@@ -31,12 +31,13 @@ class App:
         self._do_merge(backup)
 
     def on_synthetize(self):
+        current_filename = self.window.current_picker.filename()
+        current_file = read_csv_file(current_filename)
+        self.export_account = Account.parse_current(current_file)
+
         only_last_month = self.window.config_bar.last_month_check.is_checked()
-        backup = self.window.config_bar.backup_check.is_checked()
         self.window.action_bar.button_synthetize["state"] = tk.DISABLED
         self.window.action_bar.button_merge["state"] = tk.DISABLED
-
-        self._do_merge(backup)
 
         if self.thread is not None:
             self.thread.join()
