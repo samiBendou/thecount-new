@@ -74,18 +74,24 @@ def group_by(keys, values):
     return grouped
 
 
-def sample(dates, data):
+def sample(dates: list, data: dict):
     new_data = {}
+
+    initial_dates = list(
+        filter(lambda d: d <= dates[0], sorted(data.keys())))
+
+    try:
+        last_known = data[initial_dates[-1]][-1]
+    except IndexError:
+        last_known = 0.0
+
+    print(f"Initial date: {last_known}")
     for d in dates:
         try:
             new_data[d] = data[d][-1]
             last_known = new_data[d]
         except KeyError:
-            try:
-                new_data[d] = last_known
-            except UnboundLocalError:
-                new_data[d] = 0.0
-                last_known = 0.0
+            new_data[d] = last_known
 
     return unzip(sorted(new_data.items(), key=lambda i: i[0]))[1]
 
