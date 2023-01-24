@@ -196,6 +196,7 @@ def render_synthesis(export_account, dates):
         #     render_repartition(amounts, dates, title=f"Repartition ~ {category}")
 
         render_fig(fig, title="Account synthesis", date=end, pdf=pdf)
+        plt.close(fig)
 
         fig, ax = plt.subplots(2, 1)
         plot_pie_repartition(ax[0], amount_by_category, dates)
