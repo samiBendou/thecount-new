@@ -44,7 +44,7 @@ def unzip(zipped):
 def make_linear_date(start: datetime.date, end: datetime.date, days=1):
     total_duration = end - start
     delta = datetime.timedelta(days=days)
-    return list(map(lambda i: start + i * delta, range(math.ceil(total_duration.days / days))))
+    return list(map(lambda i: start + i * delta, range(math.ceil(total_duration.days / days) + 1)))
 
 
 def make_accounting_term_dates(start: datetime.date, end: datetime.date):
@@ -108,7 +108,7 @@ def aggregate(dates, data):
         except KeyError:
             new_data[next_date] = 0.0
 
-        for d in date_range[1:]:
+        for d in date_range[1:-1]:
             try:
                 new_data[next_date] += sum(data[d])
             except KeyError:
