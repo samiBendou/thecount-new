@@ -85,7 +85,6 @@ def sample(dates: list, data: dict):
     except IndexError:
         last_known = 0.0
 
-    print(f"Initial date: {last_known}")
     for d in dates:
         try:
             new_data[d] = data[d][-1]
