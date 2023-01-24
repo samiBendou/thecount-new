@@ -192,8 +192,6 @@ def render_synthesis(export_account, dates):
         amount_by_category = export_account.by_category()
         amount_by_sub_category = export_account.by_sub_category()
         plot_repartition(ax[2], ax[3], amount_by_category, dates)
-        # for category, amounts in amount_by_sub_category.items():
-        #     render_repartition(amounts, dates, title=f"Repartition ~ {category}")
 
         render_fig(fig, title="Account synthesis", date=end, pdf=pdf)
         plt.close(fig)
