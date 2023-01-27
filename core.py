@@ -4,17 +4,20 @@ import math
 
 import xlrd
 
+DAY_DELTA = datetime.timedelta(days=1)
+MONTH_DELTA = datetime.timedelta(days=31)
+
 
 def read_xls_file(filepath):
     book = xlrd.open_workbook(filepath, encoding_override="cp1252")
     sheet = book.sheet_by_index(0)
-    return list(map(lambda i: sheet.row_values(i), range(0, sheet.nrows)))
+    return [sheet.row_values(i) for i in range(0, sheet.nrows)]
 
 
 def read_csv_file(filepath):
     with open(filepath, newline="", encoding="utf-8") as file:
         reader = csv.reader(file, delimiter=";")
-        data = list(map(lambda row: row, reader))
+        data = list(reader)
     return data
 
 
@@ -34,24 +37,39 @@ def make_french_date(date, delimiter="-"):
 
 
 def some(array, predicate):
-    return len(list(filter(predicate, array))) > 0
+    for x in array:
+        if predicate(x):
+            return True
+    return False
+
+
+def partition(array, predicate):
+    positives = []
+    negatives = []
+    for x in array:
+        if predicate(x):
+            positives.append(x)
+        else:
+            negatives.append(x)
+    return (positives, negatives)
 
 
 def unzip(zipped):
-    return (list(map(lambda z: z[0], zipped)), list(map(lambda z: z[1], zipped)))
+    return ([z[0] for z in zipped], [z[1] for z in zipped])
 
 
 def make_linear_date(start: datetime.date, end: datetime.date, days=1):
     total_duration = end - start
     delta = datetime.timedelta(days=days)
-    return list(map(lambda i: start + i * delta, range(math.ceil(total_duration.days / days) + 1)))
+    periods = math.ceil(total_duration.days / days) + 1
+    return [start + i * delta for i in range(periods)]
 
 
 def make_accounting_term_dates(start: datetime.date, end: datetime.date):
     term_start = datetime.date(start.year, start.month, 1)
     month_duration = (end - term_start).days / 30
 
-    delta = datetime.timedelta(days=31)
+    delta = MONTH_DELTA
     dates = []
     for i in range(math.ceil(month_duration) + 1):
         d = term_start + i * delta
@@ -77,8 +95,8 @@ def group_by(keys, values):
 def sample(dates: list, data: dict):
     new_data = {}
 
-    initial_dates = list(
-        filter(lambda d: d <= dates[0], sorted(data.keys())))
+    sorted_dates = sorted(data.keys())
+    initial_dates = [d for d in sorted_dates if d <= dates[0]]
 
     try:
         last_known = data[initial_dates[-1]][-1]
@@ -126,7 +144,7 @@ def cumulate(data):
 
 
 def invert(data):
-    return list(map(lambda x: -x, data))
+    return [-x for x in data]
 
 
 class Transaction:
@@ -214,11 +232,14 @@ class Account:
         imported_at = parse_french_date(rows[0][7], "/")
         all_transactions = list(map(Transaction.parse_current, rows[1:]))
 
-        initial_balance = float(list(
-            filter(Transaction.is_initial, all_transactions))[0].amount)
+        (initials, transactions) = partition(
+            all_transactions, Transaction.is_initial)
 
-        transactions = list(
-            filter(lambda t: not Transaction.is_initial(t), all_transactions))
+        try:
+            initial_balance = initials[0].amount
+        except IndexError:
+            initial_balance = 0.0
+
         return Account(initial_balance, imported_at, transactions)
 
     def to_export(self):
@@ -231,13 +252,11 @@ class Account:
                   "",
                   make_french_date(self.imported_at, "/")]
 
-        initial_date = self.transactions[0].occured_at - \
-            datetime.timedelta(days=1)
+        initial_date = self.transactions[0].occured_at - DAY_DELTA
         initial = Transaction.make_initial(initial_date, self.initial_balance)
         initial_row = [0, *initial.to_export()]
-
-        rows = list(
-            map(lambda t: [t[0] + 1, *t[1].to_export()], enumerate(self.transactions)))
+        enumerated_transactions = enumerate(self.transactions)
+        rows = [[t[0] + 1, *t[1].to_export()] for t in enumerated_transactions]
         return [header, initial_row, *rows]
 
     def merge(self, other):
@@ -248,21 +267,21 @@ class Account:
         imported_at = other.imported_at
         last_occured_at = self.ended_at()
 
-        old_transactions = list(filter(lambda t_self: not some(
-            other.transactions, lambda t_other: t_other.is_same(t_self)), self.transactions))
+        old_transactions = [t_self for t_self in self.transactions if not some(
+            other.transactions, lambda t_other: t_other.is_same(t_self))]
 
-        updated_transactions = list(filter(lambda t_other: some(
-            self.transactions, lambda t_self: t_self.is_same(t_other)), other.transactions))
+        updated_transactions = [t_other for t_other in other.transactions if some(
+            self.transactions, lambda t_self: t_self.is_same(t_other))]
 
-        new_transactions = list(filter(lambda t_other: t_other.occured_at > last_occured_at and not some(
-            self.transactions, lambda t_self: t_self.is_same(t_other)), other.transactions))
+        new_transactions = [t_other for t_other in other.transactions if t_other.occured_at > last_occured_at and not some(
+            self.transactions, lambda t_self: t_self.is_same(t_other))]
 
         transactions = old_transactions + updated_transactions + new_transactions
 
         return Account(initial_balance, imported_at, transactions)
 
     def occured_at(self):
-        return list(map(lambda t: t.occured_at, self.transactions))
+        return [t.occured_at for t in self.transactions]
 
     def balance(self):
         balance = [0] * (len(self.transactions) + 1)
@@ -273,13 +292,16 @@ class Account:
         return group_by(self.occured_at(), balance[1:])
 
     def gain(self):
-        return group_by(self.occured_at(), list(map(lambda t: max(t.amount, 0), self.transactions)))
+        return group_by(self.occured_at(), [max(t.amount, 0) for t in self.transactions])
 
     def loss(self):
-        return group_by(self.occured_at(), list(map(lambda t: max(-t.amount, 0), self.transactions)))
+        return group_by(self.occured_at(), [max(-t.amount, 0) for t in self.transactions])
 
     def started_at(self):
-        return self.transactions[0].occured_at
+        try:
+            return self.transactions[0].occured_at
+        except IndexError:
+            return self.imported_at
 
     def ended_at(self):
         try:
