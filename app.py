@@ -52,8 +52,7 @@ class App:
     def _do_synthetize(self, only_last_month: bool):
         end_date = self.export_account.ended_at()
         start_date = self.export_account.started_at()
-        days = 1
-        dates = make_linear_date(start_date, end_date, days)
+        dates = make_linear_date(start_date, end_date)
         month_scale = make_accounting_term_dates(start_date, end_date)
         self.window.progress_bar.step(amount=-100)
 
@@ -64,7 +63,7 @@ class App:
         all_periods = list(zip(month_scale, month_scale[1:]))
         periods = [all_periods[-1]] if only_last_month else all_periods
         for start, end in periods:
-            dates = make_linear_date(start, end, days)
+            dates = make_linear_date(start, end)
             render_synthesis(self.export_account, dates)
             self.window.progress_bar.step(amount=progress)
 

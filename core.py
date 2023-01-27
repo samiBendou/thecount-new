@@ -58,10 +58,10 @@ def unzip(zipped):
     return ([z[0] for z in zipped], [z[1] for z in zipped])
 
 
-def make_linear_date(start: datetime.date, end: datetime.date, days=1):
+def make_linear_date(start: datetime.date, end: datetime.date):
     total_duration = end - start
-    delta = datetime.timedelta(days=days)
-    periods = math.ceil(total_duration.days / days) + 1
+    delta = DAY_DELTA
+    periods = math.ceil(total_duration.days) + 1
     return [start + i * delta for i in range(periods)]
 
 
@@ -70,11 +70,9 @@ def make_accounting_term_dates(start: datetime.date, end: datetime.date):
     month_duration = (end - term_start).days / 30
 
     delta = MONTH_DELTA
-    dates = []
-    for i in range(math.ceil(month_duration) + 1):
-        d = term_start + i * delta
-        dates.append(datetime.date(d.year, d.month, 1))
-    return dates
+    periods = math.ceil(month_duration) + 1
+    shifted_dates = [term_start + i * delta for i in range(periods)]
+    return [datetime(d.year, d.month, 1) for d in shifted_dates]
 
 
 def make_accounting_term_date(year: float, month: float):
