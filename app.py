@@ -57,7 +57,7 @@ class App:
         self.window.progress_bar.step(amount=-100)
 
         progress = 100 if only_last_month else 1/len(month_scale)*100
-        render_synthesis(self.export_account, dates)
+        render_synthesis(self.export_account, dates, period=30)
         self.window.progress_bar.step(amount=progress)
 
         all_periods = list(zip(month_scale, month_scale[1:]))

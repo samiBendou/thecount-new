@@ -141,6 +141,18 @@ def cumulate(data):
     return cumulated
 
 
+def smooth(period: int, data: list[float]):
+    if (period <= 1):
+        return data
+    half_period = round(period / 2)
+    smoothed = [0] * len(data)
+    for idx in range(half_period, len(data) - half_period):
+        total = sum(data[idx - half_period:idx + half_period])
+        smoothed[idx] = total / period
+
+    return smoothed
+
+
 def invert(data):
     return [-x for x in data]
 
