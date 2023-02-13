@@ -72,7 +72,7 @@ def make_accounting_term_dates(start: datetime.date, end: datetime.date):
     delta = MONTH_DELTA
     periods = math.ceil(month_duration) + 1
     shifted_dates = [term_start + i * delta for i in range(periods)]
-    return [datetime(d.year, d.month, 1) for d in shifted_dates]
+    return [datetime.date(d.year, d.month, 1) for d in shifted_dates]
 
 
 def make_accounting_term_date(year: float, month: float):
