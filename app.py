@@ -8,6 +8,7 @@ from gui import Window
 from plot import render_synthesis
 
 
+
 class App:
     import_account: Account | None
     current_account: Account | None
